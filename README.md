@@ -1,4 +1,4 @@
-# gorouter  [![GoDoc](https://godoc.org/github.com/xujiajun/gorouter?status.svg)](https://godoc.org/github.com/xujiajun/gorouter) <a href="https://travis-ci.org/xujiajun/gorouter"><img src="https://travis-ci.org/xujiajun/gorouter.svg?branch=master" alt="Build Status"></a> [![Go Report Card](https://goreportcard.com/badge/github.com/xujiajun/gorouter)](https://goreportcard.com/report/github.com/xujiajun/gorouter)
+# gorouter  [![GoDoc](https://godoc.org/github.com/xujiajun/gorouter?status.svg)](https://godoc.org/github.com/xujiajun/gorouter) <a href="https://travis-ci.org/xujiajun/gorouter"><img src="https://travis-ci.org/xujiajun/gorouter.svg?branch=master" alt="Build Status"></a> [![Go Report Card](https://goreportcard.com/badge/github.com/xujiajun/gorouter)](https://goreportcard.com/report/github.com/xujiajun/gorouter) [![Coverage Status](https://s3.amazonaws.com/assets.coveralls.io/badges/coveralls_100.svg)](https://coveralls.io/github/xujiajun/gorouter?branch=master) [![License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](https://raw.githubusercontent.com/xujiajun/gorouter/master/LICENSE)
 A simple and fast HTTP router for Go.
 
 ## Motivation
@@ -7,7 +7,7 @@ I wanted a simple, fast router that has no unnecessary overhead using the standa
 
 ## Features
 
-* Fast
+* Fast - see [benchmarks](#benchmarks)
 * URL parameters
 * Regex parameters
 * Routes groups
@@ -204,10 +204,131 @@ func main() {
 }
 ```
 
+## Serve static files
+
+```
+package main
+
+import (
+	"github.com/xujiajun/gorouter"
+	"log"
+	"net/http"
+	"os"
+)
+
+//ServeFiles serve static resources
+func ServeFiles(w http.ResponseWriter, r *http.Request) {
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	dir := wd + "/examples/serveStaticFiles/files"
+	http.StripPrefix("/files/", http.FileServer(http.Dir(dir))).ServeHTTP(w, r)
+}
+
+func main() {
+	mux := gorouter.New()
+	mux.GET("/hi", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("hi"))
+	})
+	//defined prefix
+	mux2 := mux.Group("/files")
+	//http://127.0.0.1:8181/files/demo.txt
+	//will match
+	mux2.GET("/{filename:[0-9a-zA-Z_.]+}", func(w http.ResponseWriter, r *http.Request) {
+		ServeFiles(w, r)
+	})
+
+	//http://127.0.0.1:8181/files/a/demo2.txt
+	//http://127.0.0.1:8181/files/a/demo.txt
+	//will match
+	mux2.GET("/{fileDir:[0-9a-zA-Z_.]+}/{filename:[0-9a-zA-Z_.]+}", func(w http.ResponseWriter, r *http.Request) {
+		ServeFiles(w, r)
+	})
+
+	log.Fatal(http.ListenAndServe(":8181", mux))
+}
+```
+Detail see [serveStaticFiles example](https://github.com/xujiajun/gorouter/blob/master/examples/serveStaticFiles/main.go)
+
+## Pattern Rule
+
+The syntax here is modeled after [julienschmidt/httprouter](https://github.com/julienschmidt/httprouter) and [gorilla/mux](https://github.com/gorilla/mux)
+
+| Syntax | Description | Example |
+|--------|------|-------|
+| `:name` | named parameter | /user/:name |
+| `{name:regexp}` | named with regexp parameter |  /user/{name:[0-9a-zA-Z]+} |
+| `:id` | named with regexp parameter |  /user/:id |
+
+And `:id` is short for `{id:[0-9]+}`, `:name` are short for `{name:[0-9a-zA-Z_]+}`
+
+ 
+## Benchmarks
+
+> go test -bench=.
+
+Benchmark System:
+
+* Go version 1.9.2
+* OS:        Mac OS X 10.13.3 
+* Architecture:   x86_64
+* 16 GB 2133 MHz LPDDR3
+
+Tested routers:
+
+* [julienschmidt/httprouter](https://github.com/julienschmidt/httprouter)
+* [xujiajun/GoRouter](https://github.com/xujiajun/gorouter)
+* [gorilla/mux](https://github.com/gorilla/mux)
+
+
+Result:
+
+```
+GithubAPI Routes: 203
+GithubAPI2 Routes: 203
+   HttpRouter: 37464 Bytes
+   GoRouter: 83616 Bytes
+   MuxRouter: 1324192 Bytes
+goos: darwin
+goarch: amd64
+pkg: github.com/xujiajun/gorouter
+BenchmarkHttpRouter-8   	   10000	    517116 ns/op	 1034339 B/op	    2604 allocs/op
+BenchmarkGoRouter-8     	   10000	    551223 ns/op	 1034385 B/op	    2843 allocs/op
+BenchmarkMuxRouter-8    	   10000	   5825422 ns/op	 1272958 B/op	    4691 allocs/op
+PASS
+ok  	github.com/xujiajun/gorouter	68.965s
+```
+
+Conclusions:
+
+* Memory Consumption (HttpRouter > gorouter > MuxRouter) 
+
+* Performance (HttpRouter > gorouter > MuxRouter)
+
+* Features (HttpRouter not support regexp, But GoRouter and MuxRouter support)
+
+As author of [HttpRouter](https://github.com/julienschmidt/httprouter) said `performance can not be the (only) criterion for choosing a router. Play around a bit with some of the routers, and choose the one you like best. Moreover main memory is cheap and usually not a scarce resource.`
+
+
 ## Contributing
 
 If you'd like to help out with the project. You can put up a Pull Request.
 
+## Author
+
+* [xujiajun](https://github.com/xujiajun)
+
 ## License
 
 The gorouter is open-sourced software licensed under the [MIT Licensed](http://www.opensource.org/licenses/MIT)
+
+## Acknowledgements
+
+This package is inspired by the following:
+
+* [httprouter](https://github.com/julienschmidt/httprouter)
+* [bone](https://github.com/go-zoo/bone)
+* [trie-mux](https://github.com/teambition/trie-mux)
+* [alien](https://github.com/gernest/alien)

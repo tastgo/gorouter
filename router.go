@@ -12,6 +12,13 @@ var (
 	defaultPattern = `[\w]+`
 	idPattern      = `[\d]+`
 	idKey          = `id`
+	methods        = map[string]string{
+		http.MethodGet:    http.MethodGet,
+		http.MethodPost:   http.MethodPost,
+		http.MethodPut:    http.MethodPut,
+		http.MethodDelete: http.MethodDelete,
+		http.MethodPatch:  http.MethodPatch,
+	}
 )
 
 type (
@@ -83,12 +90,8 @@ func (router *Router) NotFoundFunc(handler http.HandlerFunc) {
 
 // Handle registers a new request handle with the given path and method.
 func (router *Router) Handle(method string, path string, handle http.HandlerFunc) {
-	if method == "" {
+	if methods[method] == "" {
 		panic(fmt.Errorf("invalid method"))
-	}
-
-	if router.trees == nil {
-		router.trees = make(map[string]*Tree)
 	}
 
 	root := router.trees[method]
@@ -125,7 +128,7 @@ func GetAllParams(r *http.Request) paramsMapType {
 		return values
 	}
 
-	return paramsMapType{}
+	return nil
 }
 
 // ServeHTTP makes the router implement the http.Handler interface.
@@ -209,9 +212,6 @@ func (router *Router) Match(requestUrl string, path string) bool {
 // matchAndParse check if the request matches the route path and returns a map of the parsed
 func (router *Router) matchAndParse(requestUrl string, path string) (paramsMapType, bool) {
 	res := strings.Split(path, "/")
-	if res == nil {
-		return nil, false
-	}
 
 	var (
 		matchName []string
