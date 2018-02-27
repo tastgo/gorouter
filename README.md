@@ -12,6 +12,7 @@ I wanted a simple, fast router that has no unnecessary overhead using the standa
 * Regex parameters
 * Routes groups
 * Custom NotFoundHandler
+* Custom PanicHandler
 * Middleware chain Support
 * No external dependencies (just Go 1.7+ stdlib)
 
@@ -140,6 +141,34 @@ func main() {
 
 	log.Fatal(http.ListenAndServe(":8181", mux))
 }
+```
+
+### Custom PanicHandler
+
+```
+package main
+
+import (
+	"fmt"
+	"github.com/xujiajun/gorouter"
+	"log"
+	"net/http"
+)
+
+func main() {
+	mux := gorouter.New()
+	mux.PanicHandler = func(w http.ResponseWriter, req *http.Request, err interface{}) {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println("err from recover is :", err)
+		fmt.Fprint(w, "received a panic")
+	}
+	mux.GET("/panic", func(w http.ResponseWriter, r *http.Request) {
+		panic("panic")
+	})
+
+	log.Fatal(http.ListenAndServe(":8181", mux))
+}
+
 ```
 
 ### Middlewares
